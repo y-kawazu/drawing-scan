@@ -1,5 +1,10 @@
 'use strict';
 const $ = id => document.getElementById(id);
+const faviconTheme = window.matchMedia('(prefers-color-scheme: dark)');
+function updateFavicon() { $('favicon').href = faviconTheme.matches ? 'icons/favicon-dark.png?v=18' : 'icons/favicon-light.png?v=18'; }
+updateFavicon();
+if (faviconTheme.addEventListener) faviconTheme.addEventListener('change', updateFavicon);
+else faviconTheme.addListener(updateFavicon);
 const presets = { weak: [0, 2, 32, 12, 0, 100], standard: [40, 20, 160, 100, 100, 200], strong: [60, 36, 220, 140, 130, 200] };
 const controls = [["brightness","明るさ",-80,160],["contrast","コントラスト",-60,100],["white","背景白色化・影軽減",0,320],["sharp","シャープネス",0,200],["noise","ノイズ軽減",0,200],["red","赤色保護",0,400]];
 const state = { original: null, geometry: null, corrected: null, file: null, jpeg: null, mode: 'corrected', colorMode: 'color', split: .5, zoom: 1, panX: 0, panY: 0, busy: false, ready: false, points: [], picking: false, revision: 0 };
@@ -19,7 +24,7 @@ function syncButtons() {
 }
 function invalidate() { state.revision++; state.jpeg = null; syncButtons(); }
 function startWorker() {
-  worker = new Worker('processor.js?v=12');
+  worker = new Worker('processor.js?v=18');
   worker.onmessage = ({ data: m }) => {
     if (m.type === 'ready') { state.ready = true; status('準備ができました。画像を選んでください。'); syncButtons(); return; }
     if (m.type === 'fatal') { status(m.error, true); return; }
@@ -213,7 +218,7 @@ $('demoBtn').onclick = async () => {
   cx.fillStyle = '#28834b'; cx.fillText('緑字：確認済', 950, 1030);
   const blob = await new Promise(r => c.toBlob(r, 'image/png')); c.width = c.height = 1; await load(new File([blob], 'サンプル図面.png', { type: 'image/png' }));
 };
-async function offlineStatus() { try { const cache = await caches.open('kawazunext-drawing-scan-v12'); const response = await cache.match(new URL('assets/opencv.js', location.href)); $('offline').textContent = response ? 'オフライン準備完了 · アプリとOpenCVを端末に保存しました。画像はキャッシュしません。' : 'オフライン準備中です。通信環境でしばらくお待ちください。'; } catch { $('offline').textContent = 'オフライン保存が利用できません。通常の通信環境でご利用ください。'; } }
+async function offlineStatus() { try { const cache = await caches.open('kawazunext-drawing-scan-v18'); const response = await cache.match(new URL('assets/opencv.js', location.href)); $('offline').textContent = response ? 'オフライン準備完了 · アプリとOpenCVを端末に保存しました。画像はキャッシュしません。' : 'オフライン準備中です。通信環境でしばらくお待ちください。'; } catch { $('offline').textContent = 'オフライン保存が利用できません。通常の通信環境でご利用ください。'; } }
 if ('serviceWorker' in navigator && window.isSecureContext) {
   navigator.serviceWorker.register('service-worker.js').then(reg => { if (reg.active) offlineStatus(); reg.addEventListener('updatefound', () => { const installing = reg.installing; installing?.addEventListener('statechange', () => { if (installing.state === 'installed') { offlineStatus(); if (navigator.serviceWorker.controller) status('アプリの更新があります。作業を保存してから、アプリを閉じて開き直してください。'); } }); }); navigator.serviceWorker.ready.then(offlineStatus); }).catch(() => { $('offline').textContent = 'オフライン準備に失敗しました。HTTPSまたはlocalhostで開いてください。'; });
 } else $('offline').textContent = 'PWA・共有にはHTTPSまたはlocalhostが必要です。';
