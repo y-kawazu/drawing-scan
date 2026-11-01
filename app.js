@@ -19,7 +19,7 @@ function syncButtons() {
 }
 function invalidate() { state.revision++; state.jpeg = null; syncButtons(); }
 function startWorker() {
-  worker = new Worker('processor.js?v=11');
+  worker = new Worker('processor.js?v=12');
   worker.onmessage = ({ data: m }) => {
     if (m.type === 'ready') { state.ready = true; status('準備ができました。画像を選んでください。'); syncButtons(); return; }
     if (m.type === 'fatal') { status(m.error, true); return; }
@@ -95,10 +95,10 @@ function render() {
   const l = layout(); if (!l) return;
   const original = state.geometry, corrected = state.corrected || original;
   ctx.drawImage(state.mode === 'original' || state.picking ? original : corrected, l.x, l.y, l.w, l.h);
-  if (state.mode === 'compare' && !state.picking) { const sx = rect.width * state.split; ctx.save(); ctx.beginPath(); ctx.rect(0, 0, sx, rect.height); ctx.clip(); ctx.drawImage(original, l.x, l.y, l.w, l.h); ctx.restore(); ctx.strokeStyle = '#176457'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(sx, 0); ctx.lineTo(sx, rect.height); ctx.stroke(); }
+  if (state.mode === 'compare' && !state.picking) { const sx = rect.width * state.split; ctx.save(); ctx.beginPath(); ctx.rect(0, 0, sx, rect.height); ctx.clip(); ctx.drawImage(original, l.x, l.y, l.w, l.h); ctx.restore(); ctx.strokeStyle = '#242424'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(sx, 0); ctx.lineTo(sx, rect.height); ctx.stroke(); }
   if (state.picking) {
-    ctx.lineWidth = 2; ctx.strokeStyle = '#d36c25'; ctx.beginPath(); state.points.forEach((p, i) => { const x = l.x + p.x * l.w, y = l.y + p.y * l.h; if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y); }); if (state.points.length === 4) ctx.closePath(); ctx.stroke();
-    state.points.forEach((p, i) => { const x = l.x + p.x * l.w, y = l.y + p.y * l.h; ctx.fillStyle = '#176457'; ctx.beginPath(); ctx.arc(x, y, 14, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = 'white'; ctx.font = 'bold 14px sans-serif'; ctx.textAlign = 'center'; ctx.fillText(i + 1, x, y + 5); });
+    ctx.lineWidth = 2; ctx.strokeStyle = '#666666'; ctx.beginPath(); state.points.forEach((p, i) => { const x = l.x + p.x * l.w, y = l.y + p.y * l.h; if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y); }); if (state.points.length === 4) ctx.closePath(); ctx.stroke();
+    state.points.forEach((p, i) => { const x = l.x + p.x * l.w, y = l.y + p.y * l.h; ctx.fillStyle = '#242424'; ctx.beginPath(); ctx.arc(x, y, 14, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = 'white'; ctx.font = 'bold 14px sans-serif'; ctx.textAlign = 'center'; ctx.fillText(i + 1, x, y + 5); });
   }
   $('zoomValue').value = `${Math.round(state.zoom * 100)}%`; $('dimensions').textContent = `${original.width.toLocaleString()} × ${original.height.toLocaleString()} px`;
 }
@@ -213,7 +213,7 @@ $('demoBtn').onclick = async () => {
   cx.fillStyle = '#28834b'; cx.fillText('緑字：確認済', 950, 1030);
   const blob = await new Promise(r => c.toBlob(r, 'image/png')); c.width = c.height = 1; await load(new File([blob], 'サンプル図面.png', { type: 'image/png' }));
 };
-async function offlineStatus() { try { const cache = await caches.open('kawazunext-drawing-scan-v11'); const response = await cache.match(new URL('assets/opencv.js', location.href)); $('offline').textContent = response ? 'オフライン準備完了 · アプリとOpenCVを端末に保存しました。画像はキャッシュしません。' : 'オフライン準備中です。通信環境でしばらくお待ちください。'; } catch { $('offline').textContent = 'オフライン保存が利用できません。通常の通信環境でご利用ください。'; } }
+async function offlineStatus() { try { const cache = await caches.open('kawazunext-drawing-scan-v12'); const response = await cache.match(new URL('assets/opencv.js', location.href)); $('offline').textContent = response ? 'オフライン準備完了 · アプリとOpenCVを端末に保存しました。画像はキャッシュしません。' : 'オフライン準備中です。通信環境でしばらくお待ちください。'; } catch { $('offline').textContent = 'オフライン保存が利用できません。通常の通信環境でご利用ください。'; } }
 if ('serviceWorker' in navigator && window.isSecureContext) {
   navigator.serviceWorker.register('service-worker.js').then(reg => { if (reg.active) offlineStatus(); reg.addEventListener('updatefound', () => { const installing = reg.installing; installing?.addEventListener('statechange', () => { if (installing.state === 'installed') { offlineStatus(); if (navigator.serviceWorker.controller) status('アプリの更新があります。作業を保存してから、アプリを閉じて開き直してください。'); } }); }); navigator.serviceWorker.ready.then(offlineStatus); }).catch(() => { $('offline').textContent = 'オフライン準備に失敗しました。HTTPSまたはlocalhostで開いてください。'; });
 } else $('offline').textContent = 'PWA・共有にはHTTPSまたはlocalhostが必要です。';

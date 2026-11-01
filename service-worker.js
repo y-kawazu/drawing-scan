@@ -1,7 +1,7 @@
 'use strict';
 // Bump VERSION whenever any app file changes. No images selected by users enter this cache.
-const VERSION = 'kawazunext-drawing-scan-v11';
-const FILES = ['./', 'index.html', 'style.css', 'style.css?v=11', 'app.js', 'app.js?v=11', 'processor.js', 'processor.js?v=11', 'manifest.webmanifest', 'assets/opencv.js', 'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'];
+const VERSION = 'kawazunext-drawing-scan-v12';
+const FILES = ['./', 'index.html', 'style.css', 'style.css?v=12', 'app.js', 'app.js?v=12', 'processor.js', 'processor.js?v=12', 'manifest.webmanifest', 'manifest.webmanifest?v=12', 'assets/opencv.js', 'icons/icon.svg', 'icons/icon.svg?v=12', 'icons/icon-192.png', 'icons/icon-192.png?v=12', 'icons/icon-512.png', 'icons/icon-512.png?v=12', 'icons/apple-touch-icon.png', 'icons/apple-touch-icon.png?v=12'];
 self.addEventListener('install', event => { event.waitUntil(caches.open(VERSION).then(cache => cache.addAll(FILES))); });
 // Do not skipWaiting: preserve the running editor until all old tabs are closed.
 self.addEventListener('activate', event => { event.waitUntil((async () => { for (const key of await caches.keys()) if (key.startsWith('kawazunext-drawing-scan-') && key !== VERSION) await caches.delete(key); await self.clients.claim(); })()); });
