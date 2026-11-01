@@ -2,7 +2,7 @@
 const $ = id => document.getElementById(id);
 const presets = { weak: [0, 2, 32, 12, 0, 100], standard: [40, 20, 160, 100, 100, 200], strong: [60, 36, 220, 140, 130, 200] };
 const controls = [["brightness","明るさ",-80,160],["contrast","コントラスト",-60,100],["white","背景白色化・影軽減",0,320],["sharp","シャープネス",0,200],["noise","ノイズ軽減",0,200],["red","赤色保護",0,400]];
-const state = { original: null, geometry: null, corrected: null, file: null, jpeg: null, mode: 'corrected', split: .5, zoom: 1, panX: 0, panY: 0, busy: false, ready: false, points: [], picking: false, revision: 0 };
+const state = { original: null, geometry: null, corrected: null, file: null, jpeg: null, mode: 'corrected', colorMode: 'color', split: .5, zoom: 1, panX: 0, panY: 0, busy: false, ready: false, points: [], picking: false, revision: 0 };
 const view = $('view'), ctx = view.getContext('2d');
 let worker, nextId = 0, pending = new Map(), timer, outputURL, deferredInstall;
 function status(message, error = false) { $('status').textContent = message; $('status').classList.toggle('error', error); }
@@ -13,13 +13,13 @@ function syncButtons() {
   $('auto').disabled = !state.ready || !state.geometry || state.busy;
   $('save').disabled = $('share').disabled = !state.jpeg || state.busy;
   for (const id of ['cameraBtn', 'fileBtn', 'demoBtn', 'rotateLeft', 'rotateRight', 'applyAngle', 'corners', 'resetGeometry', 'reset']) $(id).disabled = state.busy;
-  document.querySelectorAll('#sliders input,#presets button,#angle,#quality').forEach(el => el.disabled = state.busy);
+  document.querySelectorAll('#sliders input,#presets button,#colorModes button,#angle,#quality').forEach(el => el.disabled = state.busy);
   $('applyCorners').disabled = state.busy || state.points.length !== 4;
   $('exportState').textContent = state.busy ? '画像を処理しています…' : state.jpeg ? 'JPGの準備ができました' : state.geometry ? '「自動補正する」を押してください' : '図面を選んで開始';
 }
 function invalidate() { state.revision++; state.jpeg = null; syncButtons(); }
 function startWorker() {
-  worker = new Worker('processor.js?v=10');
+  worker = new Worker('processor.js?v=11');
   worker.onmessage = ({ data: m }) => {
     if (m.type === 'ready') { state.ready = true; status('準備ができました。画像を選んでください。'); syncButtons(); return; }
     if (m.type === 'fatal') { status(m.error, true); return; }
@@ -44,7 +44,13 @@ for (const [id, title, min, max] of controls) {
 }
 function setPreset(name) { controls.forEach(([id], i) => { $(id).value = presets[name][i]; $(`${id}Value`).value = $(id).value; }); document.querySelectorAll('#presets button').forEach(b => { const selected = b.dataset.preset === name; b.classList.toggle('selected', selected); b.setAttribute('aria-pressed', String(selected)); }); }
 setPreset('standard');
-function settings() { return Object.fromEntries(controls.map(([id]) => [id, Number($(id).value)])); }
+function setColorMode(mode) {
+  state.colorMode = mode;
+  document.querySelectorAll('#colorModes button').forEach(b => { const selected = b.dataset.colorMode === mode; b.classList.toggle('selected', selected); b.setAttribute('aria-pressed', String(selected)); });
+  $('colorModeLabel').textContent = mode === 'color' ? 'カラー' : '白黒＋赤字';
+}
+function settings() { return { ...Object.fromEntries(controls.map(([id]) => [id, Number($(id).value)])), colorMode: state.colorMode }; }
+$('colorModes').onclick = e => { if (e.target.dataset.colorMode && !state.busy) { setColorMode(e.target.dataset.colorMode); invalidate(); schedule(); } };
 function schedule() { clearTimeout(timer); if (state.geometry && state.ready) timer = setTimeout(processImage, 300); }
 async function processImage() {
   clearTimeout(timer); if (state.busy || !state.geometry || !state.ready) return;
@@ -122,7 +128,7 @@ async function load(file) {
     const cx = c.getContext('2d', { colorSpace: 'srgb' }); cx.fillStyle = 'white'; cx.fillRect(0, 0, c.width, c.height); cx.drawImage(img, 0, 0, c.width, c.height);
     cx.getImageData(0, 0, 1, 1); // Fail early if the browser rejected the canvas allocation.
     const old = [state.original, state.geometry, state.corrected]; state.original = c; state.geometry = c; state.corrected = null; old.forEach(free);
-    clearTimeout(timer); setPreset('standard'); state.file = file; state.points = []; state.picking = false; state.mode = 'original'; invalidate(); $('angle').value = 0; $('angleValue').value = '0°'; $('empty').style.display = 'none'; updateModes(); fit();
+    clearTimeout(timer); setPreset('standard'); setColorMode('color'); state.file = file; state.points = []; state.picking = false; state.mode = 'original'; invalidate(); $('angle').value = 0; $('angleValue').value = '0°'; $('empty').style.display = 'none'; updateModes(); fit();
     $('fileInfo').textContent = `${file.name} · ${(file.size / 1024 / 1024).toFixed(1)} MB · 元画像 ${w} × ${h} px${scale < 1 ? ' → 同意に基づき作業画像を縮小しました' : ' · 解像度を維持'}。原本ファイルは保持されています。`;
     status(state.ready ? '画像を読み込みました。「自動補正する」を押してください。' : '画像を読み込みました。OpenCVの準備を待っています。');
   } catch (e) { free(c); status(`画像を読み込めませんでした。HEICは端末の対応が必要です。JPGへの変換や小さい画像でお試しください。${e.message ? ' ' + e.message : ''}`, true); }
@@ -158,7 +164,7 @@ $('rotateLeft').onclick = () => rotate(-90); $('rotateRight').onclick = () => ro
 $('angle').oninput = () => { $('angleValue').value = `${$('angle').value}°`; };
 $('applyAngle').onclick = async () => { const angle = Number($('angle').value); if (angle) { await rotate(angle); $('angle').value = 0; $('angleValue').value = '0°'; } };
 $('resetGeometry').onclick = () => { if (state.original && !state.busy) geometryChanged(state.original); };
-$('reset').onclick = () => { if (!state.original || state.busy) return; clearTimeout(timer); setPreset('standard'); const old = [state.geometry, state.corrected]; state.geometry = state.original; state.corrected = null; old.forEach(free); state.points = []; state.picking = false; state.mode = 'original'; $('angle').value = 0; $('angleValue').value = '0°'; $('quality').value = 95; $('qualityValue').value = '95%'; invalidate(); updateModes(); fit(); status('原本に戻しました。補正設定も初期値に戻しました。'); };
+$('reset').onclick = () => { if (!state.original || state.busy) return; clearTimeout(timer); setPreset('standard'); setColorMode('color'); const old = [state.geometry, state.corrected]; state.geometry = state.original; state.corrected = null; old.forEach(free); state.points = []; state.picking = false; state.mode = 'original'; $('angle').value = 0; $('angleValue').value = '0°'; $('quality').value = 95; $('qualityValue').value = '95%'; invalidate(); updateModes(); fit(); status('原本に戻しました。補正設定も初期値に戻しました。'); };
 $('auto').onclick = processImage;
 $('presets').onclick = e => { const name = e.target.dataset.preset; if (name && !state.busy) { setPreset(name); invalidate(); schedule(); } };
 $('modes').onclick = e => { if (e.target.dataset.mode) { state.mode = e.target.dataset.mode; state.picking = false; state.points = []; updateModes(); syncButtons(); render(); } };
@@ -203,9 +209,11 @@ $('demoBtn').onclick = async () => {
   cx.strokeStyle = '#aaa99d'; cx.lineWidth = 1; for (let i = 0; i < 8; i++) { cx.beginPath(); cx.moveTo(270 + i * 40, 300); cx.lineTo(310 + i * 40, 450); cx.stroke(); }
   cx.fillStyle = '#4c514c'; cx.font = '30px sans-serif'; cx.fillText('家具製作指示書  /  KN-2527', 220, 150); cx.font = '25px sans-serif'; cx.fillText('材料：合板  t=25  数量 2', 240, 900); cx.fillText('27', 650, 560); cx.fillText('25', 760, 560);
   cx.strokeStyle = '#ba3131'; cx.fillStyle = '#ba3131'; cx.lineWidth = 2; cx.beginPath(); cx.moveTo(240, 210); cx.lineTo(1240, 210); cx.moveTo(240, 190); cx.lineTo(240, 250); cx.moveTo(1240, 190); cx.lineTo(1240, 250); cx.stroke(); cx.font = '32px sans-serif'; cx.fillText('1,200 mm', 630, 195); cx.fillText('赤字寸法を確認', 950, 950);
+  cx.strokeStyle = '#275bab'; cx.fillStyle = '#275bab'; cx.lineWidth = 3; cx.strokeRect(850, 420, 250, 180); cx.fillText('青字：取付位置', 240, 980);
+  cx.fillStyle = '#28834b'; cx.fillText('緑字：確認済', 950, 1030);
   const blob = await new Promise(r => c.toBlob(r, 'image/png')); c.width = c.height = 1; await load(new File([blob], 'サンプル図面.png', { type: 'image/png' }));
 };
-async function offlineStatus() { try { const cache = await caches.open('kawazunext-drawing-scan-v10'); const response = await cache.match(new URL('assets/opencv.js', location.href)); $('offline').textContent = response ? 'オフライン準備完了 · アプリとOpenCVを端末に保存しました。画像はキャッシュしません。' : 'オフライン準備中です。通信環境でしばらくお待ちください。'; } catch { $('offline').textContent = 'オフライン保存が利用できません。通常の通信環境でご利用ください。'; } }
+async function offlineStatus() { try { const cache = await caches.open('kawazunext-drawing-scan-v11'); const response = await cache.match(new URL('assets/opencv.js', location.href)); $('offline').textContent = response ? 'オフライン準備完了 · アプリとOpenCVを端末に保存しました。画像はキャッシュしません。' : 'オフライン準備中です。通信環境でしばらくお待ちください。'; } catch { $('offline').textContent = 'オフライン保存が利用できません。通常の通信環境でご利用ください。'; } }
 if ('serviceWorker' in navigator && window.isSecureContext) {
   navigator.serviceWorker.register('service-worker.js').then(reg => { if (reg.active) offlineStatus(); reg.addEventListener('updatefound', () => { const installing = reg.installing; installing?.addEventListener('statechange', () => { if (installing.state === 'installed') { offlineStatus(); if (navigator.serviceWorker.controller) status('アプリの更新があります。作業を保存してから、アプリを閉じて開き直してください。'); } }); }); navigator.serviceWorker.ready.then(offlineStatus); }).catch(() => { $('offline').textContent = 'オフライン準備に失敗しました。HTTPSまたはlocalhostで開いてください。'; });
 } else $('offline').textContent = 'PWA・共有にはHTTPSまたはlocalhostが必要です。';

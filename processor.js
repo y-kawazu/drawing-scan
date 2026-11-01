@@ -47,6 +47,19 @@ self.onmessage = async ({ data: m }) => {
     cv.GaussianBlur(dilated, field, new cv.Size(31, 31), 0);
     const pixels = new Uint8ClampedArray(m.buffer), out = new Uint8ClampedArray(pixels.length);
     const s = m.settings, fw = field.cols, fh = field.rows, fieldData = field.data;
+    // Estimate the photographed paper colour from the brightest tenth of the
+    // thumbnail. Local RGB normalization alone can erase a broad colour fill.
+    const histogram = new Uint32Array(256);
+    for (let i = 0; i < small.data.length; i += 4) histogram[Math.round(small.data[i] * .2126 + small.data[i + 1] * .7152 + small.data[i + 2] * .0722)]++;
+    let cutoff = 255, count = 0;
+    while (cutoff > 0 && count < fw * fh * .1) count += histogram[cutoff--];
+    const paperRGB = [0, 0, 0]; let paperCount = 0;
+    for (let i = 0; i < small.data.length; i += 4) {
+      if (small.data[i] * .2126 + small.data[i + 1] * .7152 + small.data[i + 2] * .0722 < cutoff) continue;
+      for (let c = 0; c < 3; c++) paperRGB[c] += small.data[i + c];
+      paperCount++;
+    }
+    for (let c = 0; c < 3; c++) paperRGB[c] = Math.max(40, paperRGB[c] / Math.max(1, paperCount));
     const at = (x, y, c) => fieldData[(y * fw + x) * 4 + c];
     // Tiles with a halo keep the OpenCV working set bounded and avoid seams.
     for (let ty = 0; ty < h; ty += 384) {
@@ -77,6 +90,7 @@ self.onmessage = async ({ data: m }) => {
             // Yellow paper has both R>G and G>B. Exclude that warm cast from red-ink protection.
             const redExcess = r - Math.max(g, b) - Math.max(0, g - b) * 1.25 - 6;
             const red = Math.min(1, Math.max(0, redExcess / 55) * s.red / 100);
+            let lightR, lightG, lightB, baseR, baseG, baseB;
             for (let c = 0; c < 3; c++) {
               const original = pixels[i + c], smooth = blurData[j + c];
               const amount = Math.min(1, s.noise / 100);
@@ -87,6 +101,9 @@ self.onmessage = async ({ data: m }) => {
               const edgeWeight = Math.min(1, Math.max(0, (Math.abs(detail) - 5) / 15));
               const base = filteredValue + detail * Math.min(1, s.sharp / 100) * .3 * edgeWeight;
               const light = (at(ix, iy, c) * (1 - dx) + at(nx, iy, c) * dx) * (1 - dy) + (at(ix, ny, c) * (1 - dx) + at(nx, ny, c) * dx) * dy;
+              if (c === 0) { lightR = light; baseR = base; }
+              else if (c === 1) { lightG = light; baseG = base; }
+              else { lightB = light; baseB = base; }
               // Set the paper endpoint first, then subtract the local ink deficit.
               // Clipping a brightened whole image would also erase faint pencil lines.
               const whiteMix = Math.min(1, s.white / 100);
@@ -108,10 +125,25 @@ self.onmessage = async ({ data: m }) => {
             // Neutral ink/paper use luminance; explicitly protected red keeps its colour.
             const neutral = out[i] * .2126 + out[i + 1] * .7152 + out[i + 2] * .0722;
             const neutralMix = Math.min(1, s.white / 100);
+            let colorWeight = 0, illumination = 1;
+            if (s.colorMode === 'color') {
+              const nr = denoiseData[j] / paperRGB[0], ng = denoiseData[j + 1] / paperRGB[1], nb = denoiseData[j + 2] / paperRGB[2];
+              const high = Math.max(nr, ng, nb), low = Math.min(nr, ng, nb);
+              colorWeight = Math.min(1, Math.max(0, ((high - low) / Math.max(.01, high) - .04) / .12));
+              if (nr > ng && nr > nb) colorWeight = Math.min(1, colorWeight * Math.max(.25, s.red / 100));
+              // Common exposure for all channels preserves coloured regions even
+              // when they are wider than the background-estimation kernel.
+              illumination = Math.max(.35, Math.min(1.25, Math.max(lightR / paperRGB[0], lightG / paperRGB[1], lightB / paperRGB[2])));
+            }
             for (let c = 0; c < 3; c++) {
               const value = out[i + c] * (1 - neutralMix) + neutral * neutralMix;
               const preserved = pixels[i + c] * (1 + s.white / 100 * 0.12) + s.brightness * .3;
-              out[i + c] = clamp(value * (1 - red) + preserved * red);
+              if (s.colorMode === 'color') {
+                const base = c === 0 ? baseR : c === 1 ? baseG : baseB;
+                const balanced = base * 255 / (paperRGB[c] * illumination);
+                const colored = clamp((balanced - 128) * (1 + s.contrast / 500) + 128 + s.brightness * .1);
+                out[i + c] = clamp(value * (1 - colorWeight) + colored * colorWeight);
+              } else out[i + c] = clamp(value * (1 - red) + preserved * red);
             }
             out[i + 3] = 255;
           }
