@@ -1,0 +1,5 @@
+release/
+node_modules/
+*.zip
+tests/*.png
+.DS_Store
