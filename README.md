@@ -1,5 +1,11 @@
 # KawazuNext 図面スキャン
 
+試験公開：https://y-kawazu.github.io/drawing-scan/
+
+ソース：https://github.com/y-kawazu/drawing-scan
+
+2026-11-01：GitHub Pages（main / root、HTTPS）で試験公開。公開URLでサンプルの補正・JPG生成準備・オフライン用キャッシュ完了を確認済みです。iPhone・Androidの実機撮影、インストール、メール添付は未検証です。
+
 サーバープログラム不要の日本語PWA。撮影画像の画素をOpenCV.jsとCanvasで補正します。画像生成AI、OCR、外部処理API、SMTPは使用しません。
 
 ## 起動
@@ -48,7 +54,7 @@ manifestのstandaloneとアイコン・起動背景色を設定。iOSの起動�
 
 更新時は `service-worker.js` のVERSIONと `app.js` のofflineStatus内キャッシュ名を同時に増やしてください。起動中の作業を保護するためskipWaitingはしません。更新通知後は保存して全タブ・ホーム画面アプリを閉じ、再起動します。SWが変わるのでHTML等のキャッシュもまとめて置き換わります。
 
-## GitHub Pages試験公開（公開操作は未実施）
+## GitHub Pages試験公開・更新
 
 公開するのはアプリの静的ソース・アイコン・OpenCV本体だけです。顧客図面はリポジトリに追加しないでください。
 
