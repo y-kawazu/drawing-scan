@@ -20,4 +20,6 @@ assert.ok(html.indexOf('id="drop"') < html.indexOf('class="card controls"'));
 assert.ok(html.indexOf('class="card controls"') < html.indexOf('class="card preview-card"'));
 assert.ok(html.includes('<details id="adjustments">'));
 assert.ok(!html.includes('<details id="adjustments" open'));
-console.log('PASS: fitted/zoomed pan bounds, 1 → 3 → 2 order, collapsed adjustments');
+const headings=[...html.matchAll(/<h2><span class="step">(\d)<\/span>(.*?)<\/h2>/g)].map(m=>m[1]+':'+m[2]);
+assert.deepEqual(headings,['1:図面を取り込む','2:図面を補正','3:プレビュー']);
+console.log('PASS: fitted/zoomed pan bounds, 1 → 2 → 3 order, collapsed adjustments');
