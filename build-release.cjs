@@ -1,7 +1,7 @@
 // Explicit allowlist: never copy customer screenshots or arbitrary asset folders.
 const fs = require('node:fs'), path = require('node:path'), crypto = require('node:crypto');
 const root = __dirname, target = path.join(root, 'release');
-const files = ['index.html', 'style.css', 'app.js', 'processor.js', 'manifest.webmanifest', 'service-worker.js', '.nojekyll', 'README.md', 'TEST-RESULTS.md', 'server.cjs', 'build-release.cjs', '.gitignore', 'tests/processor.cjs', 'assets/opencv.js', 'assets/OPENCV-LICENSE.txt', 'assets/THIRD-PARTY.md', 'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'];
+const files = ['index.html', 'style.css', 'app.js', 'processor.js', 'manifest.webmanifest', 'service-worker.js', '.nojekyll', 'README.md', 'TEST-RESULTS.md', 'server.cjs', 'build-release.cjs', '.gitignore', 'tests/processor.cjs', 'tests/viewport.cjs', 'assets/opencv.js', 'assets/OPENCV-LICENSE.txt', 'assets/THIRD-PARTY.md', 'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'];
 fs.mkdirSync(target, { recursive: true });
 // Refuse an unexpected preexisting payload instead of silently publishing it.
 function walk(dir, prefix = '') { return fs.readdirSync(dir, { withFileTypes: true }).flatMap(e => e.isDirectory() ? walk(path.join(dir, e.name), prefix + e.name + '/') : [prefix + e.name]); }

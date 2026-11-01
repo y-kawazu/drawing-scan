@@ -84,4 +84,8 @@ OpenCV.js 4.10.0（@techstark/opencv-js 4.10.0-release.1配布）を `assets/ope
 
 技術資料：[OpenCV幾何変換](https://docs.opencv.org/4.10.0/dd/d52/tutorial_js_geometric_transformations.html)、[OpenCVフィルター](https://docs.opencv.org/4.10.0/dd/d6a/tutorial_js_filtering.html)、[Web Share API](https://developer.mozilla.org/en-US/docs/Web/API/Navigator/share)。
 
-開いている画面に古いキャッシュが残る場合は、ローカルサーバー起動中に `http://localhost:4176/index.html?v=9` を開いてください。旧キャッシュを避けるためアプリとWorkerのURLに版番号を付けています。顧客画像は持ち越しません。フッターに「白紙スキャン補正 1.3」と表示される版が更新版です。
+開いている画面に古いキャッシュが残る場合は、ローカルサーバー起動中に `http://localhost:4176/index.html?v=10` を開いてください。旧キャッシュを避けるためアプリとWorkerのURLに版番号を付けています。顧客画像は持ち越しません。フッターに「白紙スキャン補正 1.4」と表示される版が更新版です。
+
+## スマートフォン画面（1.4）
+
+冒頭の紹介文を削除し、①取り込み→③補正→②プレビューの順に配置。補正強度・スライダー・回転・保存設定・リセットは「補正の強さ・詳細設定」にまとめ、初期状態は閉じます。画像情報も折りたたみ、比較位置スライダーは左右比較時だけ表示します。プレビューは画像の縦横比に合わせて余白を減らします。全体表示では画像を中央に固定し、拡大時は画像の端まで移動できます。空白の外へ画像が消えるような移動は制限します。`node tests/viewport.cjs` で移動制限・表示順・初期折りたたみを確認できます。

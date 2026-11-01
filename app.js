@@ -19,7 +19,7 @@ function syncButtons() {
 }
 function invalidate() { state.revision++; state.jpeg = null; syncButtons(); }
 function startWorker() {
-  worker = new Worker('processor.js?v=9');
+  worker = new Worker('processor.js?v=10');
   worker.onmessage = ({ data: m }) => {
     if (m.type === 'ready') { state.ready = true; status('準備ができました。画像を選んでください。'); syncButtons(); return; }
     if (m.type === 'fatal') { status(m.error, true); return; }
@@ -70,10 +70,17 @@ async function prepareJPEG(revision = state.revision) {
   const base = (state.file?.name || '図面').replace(/\.[^.]+$/, '').replace(/[\\/:*?"<>|\u0000-\u001f]/g, '_');
   state.jpeg = new File([blob], `${base}_補正.jpg`, { type: 'image/jpeg' }); syncButtons();
 }
-function fit() { state.zoom = 1; state.panX = state.panY = 0; render(); }
+function fit() { state.zoom = 1; state.panX = state.panY = 0; if (state.geometry) $('viewer').style.setProperty('--image-ratio', state.geometry.width + ' / ' + state.geometry.height); render(); }
+function boundPan(panX, panY, imageWidth, imageHeight, viewportWidth, viewportHeight) {
+  const limitX = Math.max(0, (imageWidth - viewportWidth) / 2);
+  const limitY = Math.max(0, (imageHeight - viewportHeight) / 2);
+  return [Math.max(-limitX, Math.min(limitX, panX)), Math.max(-limitY, Math.min(limitY, panY))];
+}
 function layout() {
   const source = state.geometry; if (!source) return null;
-  const rect = $('viewer').getBoundingClientRect(), scale = Math.min((rect.width - 32) / source.width, (rect.height - 32) / source.height) * state.zoom;
+  const rect = $('viewer').getBoundingClientRect(), padding = rect.width < 820 ? 8 : 16;
+  const scale = Math.min((rect.width - padding * 2) / source.width, (rect.height - padding * 2) / source.height) * state.zoom;
+  [state.panX, state.panY] = boundPan(state.panX, state.panY, source.width * scale, source.height * scale, rect.width - padding * 2, rect.height - padding * 2);
   return { scale, x: (rect.width - source.width * scale) / 2 + state.panX, y: (rect.height - source.height * scale) / 2 + state.panY, w: source.width * scale, h: source.height * scale, cw: rect.width, ch: rect.height };
 }
 function render() {
@@ -89,7 +96,7 @@ function render() {
   }
   $('zoomValue').value = `${Math.round(state.zoom * 100)}%`; $('dimensions').textContent = `${original.width.toLocaleString()} × ${original.height.toLocaleString()} px`;
 }
-function updateModes() { document.querySelectorAll('#modes button').forEach(b => { const selected = b.dataset.mode === state.mode; b.classList.toggle('selected', selected); b.setAttribute('aria-pressed', String(selected)); }); $('viewLabels').hidden = state.mode !== 'compare' || state.picking; }
+function updateModes() { document.querySelector('.compare-slider').hidden = state.mode !== 'compare'; document.querySelectorAll('#modes button').forEach(b => { const selected = b.dataset.mode === state.mode; b.classList.toggle('selected', selected); b.setAttribute('aria-pressed', String(selected)); }); $('viewLabels').hidden = state.mode !== 'compare' || state.picking; }
 async function decode(file) {
   if ('createImageBitmap' in window) { try { return await createImageBitmap(file, { imageOrientation: 'from-image', colorSpaceConversion: 'default' }); } catch {} }
   const url = URL.createObjectURL(file); const img = new Image(); img.decoding = 'async';
@@ -180,7 +187,7 @@ view.addEventListener('pointerdown', e => {
   pointers.set(e.pointerId, { x: e.clientX, y: e.clientY }); drag = { x: e.clientX, y: e.clientY, px: state.panX, py: state.panY };
   if (pointers.size === 2) { const [a, b] = [...pointers.values()]; pinch = { distance: Math.hypot(a.x - b.x, a.y - b.y), zoom: state.zoom }; }
 });
-view.addEventListener('pointermove', e => { if (!pointers.has(e.pointerId)) return; pointers.set(e.pointerId, { x: e.clientX, y: e.clientY }); if (pointers.size === 2 && pinch) { const [a, b] = [...pointers.values()]; state.zoom = Math.max(1, Math.min(12, pinch.zoom * Math.hypot(a.x - b.x, a.y - b.y) / Math.max(1, pinch.distance))); } else if (drag) { state.panX = drag.px + e.clientX - drag.x; state.panY = drag.py + e.clientY - drag.y; } render(); });
+view.addEventListener('pointermove', e => { if (!pointers.has(e.pointerId)) return; pointers.set(e.pointerId, { x: e.clientX, y: e.clientY }); if (pointers.size === 2 && pinch) { const [a, b] = [...pointers.values()]; state.zoom = Math.max(1, Math.min(12, pinch.zoom * Math.hypot(a.x - b.x, a.y - b.y) / Math.max(1, pinch.distance))); } else if (drag) { state.panX = drag.px + e.clientX - drag.x; state.panY = drag.py + e.clientY - drag.y; } render(); if (pointers.size === 1) drag = { x: e.clientX, y: e.clientY, px: state.panX, py: state.panY }; });
 function endPointer(e) { pointers.delete(e.pointerId); pinch = null; const p = [...pointers.values()][0]; drag = p ? { ...p, px: state.panX, py: state.panY } : null; }
 view.addEventListener('pointerup', endPointer); view.addEventListener('pointercancel', endPointer);
 view.addEventListener('wheel', e => { if (!state.geometry) return; e.preventDefault(); state.zoom = Math.max(1, Math.min(12, state.zoom * (e.deltaY > 0 ? .9 : 1.1))); render(); }, { passive: false });
@@ -198,7 +205,7 @@ $('demoBtn').onclick = async () => {
   cx.strokeStyle = '#ba3131'; cx.fillStyle = '#ba3131'; cx.lineWidth = 2; cx.beginPath(); cx.moveTo(240, 210); cx.lineTo(1240, 210); cx.moveTo(240, 190); cx.lineTo(240, 250); cx.moveTo(1240, 190); cx.lineTo(1240, 250); cx.stroke(); cx.font = '32px sans-serif'; cx.fillText('1,200 mm', 630, 195); cx.fillText('赤字寸法を確認', 950, 950);
   const blob = await new Promise(r => c.toBlob(r, 'image/png')); c.width = c.height = 1; await load(new File([blob], 'サンプル図面.png', { type: 'image/png' }));
 };
-async function offlineStatus() { try { const cache = await caches.open('kawazunext-drawing-scan-v9'); const response = await cache.match(new URL('assets/opencv.js', location.href)); $('offline').textContent = response ? 'オフライン準備完了 · アプリとOpenCVを端末に保存しました。画像はキャッシュしません。' : 'オフライン準備中です。通信環境でしばらくお待ちください。'; } catch { $('offline').textContent = 'オフライン保存が利用できません。通常の通信環境でご利用ください。'; } }
+async function offlineStatus() { try { const cache = await caches.open('kawazunext-drawing-scan-v10'); const response = await cache.match(new URL('assets/opencv.js', location.href)); $('offline').textContent = response ? 'オフライン準備完了 · アプリとOpenCVを端末に保存しました。画像はキャッシュしません。' : 'オフライン準備中です。通信環境でしばらくお待ちください。'; } catch { $('offline').textContent = 'オフライン保存が利用できません。通常の通信環境でご利用ください。'; } }
 if ('serviceWorker' in navigator && window.isSecureContext) {
   navigator.serviceWorker.register('service-worker.js').then(reg => { if (reg.active) offlineStatus(); reg.addEventListener('updatefound', () => { const installing = reg.installing; installing?.addEventListener('statechange', () => { if (installing.state === 'installed') { offlineStatus(); if (navigator.serviceWorker.controller) status('アプリの更新があります。作業を保存してから、アプリを閉じて開き直してください。'); } }); }); navigator.serviceWorker.ready.then(offlineStatus); }).catch(() => { $('offline').textContent = 'オフライン準備に失敗しました。HTTPSまたはlocalhostで開いてください。'; });
 } else $('offline').textContent = 'PWA・共有にはHTTPSまたはlocalhostが必要です。';
