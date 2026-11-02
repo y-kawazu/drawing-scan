@@ -1,7 +1,7 @@
 'use strict';
 // Bump VERSION whenever any app file changes. No images selected by users enter this cache.
-const VERSION = 'kawazunext-drawing-scan-v18';
-const FILES = ['./', 'index.html', 'style.css', 'style.css?v=18', 'app.js', 'app.js?v=18', 'processor.js', 'processor.js?v=18', 'manifest.webmanifest', 'manifest.webmanifest?v=18', 'assets/opencv.js', 'assets/kawazunext-logo.png', 'assets/kawazunext-logo.png?v=18', 'icons/favicon-light.png', 'icons/favicon-light.png?v=18', 'icons/favicon-dark.png', 'icons/favicon-dark.png?v=18', 'icons/icon.svg', 'icons/icon.svg?v=18', 'icons/icon-192.png', 'icons/icon-192.png?v=18', 'icons/icon-512.png', 'icons/icon-512.png?v=18', 'icons/apple-touch-icon.png', 'icons/apple-touch-icon.png?v=18'];
+const VERSION = 'kawazunext-drawing-scan-v19';
+const FILES = ['./', 'index.html', 'style.css', 'style.css?v=19', 'app.js', 'app.js?v=19', 'processor.js', 'processor.js?v=19', 'manifest.webmanifest', 'manifest.webmanifest?v=19', 'assets/opencv.js', 'assets/kawazunext-logo.png', 'assets/kawazunext-logo.png?v=19', 'icons/favicon-light.png', 'icons/favicon-light.png?v=19', 'icons/favicon-dark.png', 'icons/favicon-dark.png?v=19', 'icons/icon.svg', 'icons/icon.svg?v=19', 'icons/icon-192.png', 'icons/icon-192.png?v=19', 'icons/icon-512.png', 'icons/icon-512.png?v=19', 'icons/apple-touch-icon.png', 'icons/apple-touch-icon.png?v=19'];
 self.addEventListener('install', event => { event.waitUntil(caches.open(VERSION).then(cache => cache.addAll(FILES))); });
 // Do not skipWaiting: preserve the running editor until all old tabs are closed.
 self.addEventListener('activate', event => { event.waitUntil((async () => { for (const key of await caches.keys()) if (key.startsWith('kawazunext-drawing-scan-') && key !== VERSION) await caches.delete(key); await self.clients.claim(); })()); });

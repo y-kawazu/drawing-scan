@@ -84,7 +84,7 @@ OpenCV.js 4.10.0（@techstark/opencv-js 4.10.0-release.1配布）を `assets/ope
 
 技術資料：[OpenCV幾何変換](https://docs.opencv.org/4.10.0/dd/d52/tutorial_js_geometric_transformations.html)、[OpenCVフィルター](https://docs.opencv.org/4.10.0/dd/d6a/tutorial_js_filtering.html)、[Web Share API](https://developer.mozilla.org/en-US/docs/Web/API/Navigator/share)。
 
-開いている画面に古いキャッシュが残る場合は、ローカルサーバー起動中に `http://localhost:4176/index.html?v=18` を開いてください。旧キャッシュを避けるためアプリとWorkerのURLに版番号を付けています。顧客画像は持ち越しません。フッターに「白紙スキャン補正 1.7」と表示される版が更新版です。
+開いている画面に古いキャッシュが残る場合は、ローカルサーバー起動中に `http://localhost:4176/index.html?v=19` を開いてください。旧キャッシュを避けるためアプリとWorkerのURLに版番号を付けています。顧客画像は持ち越しません。フッターに「白紙スキャン補正 1.8」と表示される版が更新版です。
 
 ## スマートフォン画面（1.4）
 
@@ -102,6 +102,10 @@ OpenCV.js 4.10.0（@techstark/opencv-js 4.10.0-release.1配布）を `assets/ope
 
 支給された白いKawazuNextロゴを枠なしで使用し、外側はダークグレー #4b4b4b、作業カードは #f4f4f4。操作番号は①取り込み→②図面補正→③プレビューです。ファビコンは支給された黒・白のマークから縦横比を保って作成し、ブラウザーのライト／ダーク設定に応じて自動切替します。
 
-更新版：https://y-kawazu.github.io/drawing-scan/index.html?v=18
+更新版：https://y-kawazu.github.io/drawing-scan/index.html?v=19
 
 既にインストールしている場合は、作業を保存して全タブとホーム画面アプリを閉じ、更新版URLを開いてください。OSが保持するホーム画面アイコンは反映まで時間がかかる場合があります。
+
+## 画像のクリア（1.8）
+
+①取り込み欄の「画像をクリア」で、読み込んだ画像・補正後の画像・JPGの一時データを破棄して初期画面に戻します。標準・カラー・品質95%・ズームも初期状態に戻ります。端末上の元ファイルは削除しません。画像処理中はボタンを無効にし、予約された補正と古いJPGの反映を防ぎます。「すべての補正をリセット」は原本を残して設定だけ戻す従来の操作です。

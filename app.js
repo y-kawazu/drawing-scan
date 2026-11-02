@@ -1,7 +1,7 @@
 'use strict';
 const $ = id => document.getElementById(id);
 const faviconTheme = window.matchMedia('(prefers-color-scheme: dark)');
-function updateFavicon() { $('favicon').href = faviconTheme.matches ? 'icons/favicon-dark.png?v=18' : 'icons/favicon-light.png?v=18'; }
+function updateFavicon() { $('favicon').href = faviconTheme.matches ? 'icons/favicon-dark.png?v=19' : 'icons/favicon-light.png?v=19'; }
 updateFavicon();
 if (faviconTheme.addEventListener) faviconTheme.addEventListener('change', updateFavicon);
 else faviconTheme.addListener(updateFavicon);
@@ -15,6 +15,7 @@ function makeCanvas(w, h) { const c = document.createElement('canvas'); c.width 
 function copyCanvas(src) { const c = makeCanvas(src.width, src.height); c.getContext('2d').drawImage(src, 0, 0); return c; }
 function free(c) { if (c && c !== state.original && c !== state.geometry && c !== state.corrected) { c.width = c.height = 1; } }
 function syncButtons() {
+  $('clear').disabled = !state.original || state.busy;
   $('auto').disabled = !state.ready || !state.geometry || state.busy;
   $('save').disabled = $('share').disabled = !state.jpeg || state.busy;
   for (const id of ['cameraBtn', 'fileBtn', 'demoBtn', 'rotateLeft', 'rotateRight', 'applyAngle', 'corners', 'resetGeometry', 'reset']) $(id).disabled = state.busy;
@@ -24,7 +25,7 @@ function syncButtons() {
 }
 function invalidate() { state.revision++; state.jpeg = null; syncButtons(); }
 function startWorker() {
-  worker = new Worker('processor.js?v=18');
+  worker = new Worker('processor.js?v=19');
   worker.onmessage = ({ data: m }) => {
     if (m.type === 'ready') { state.ready = true; status('準備ができました。画像を選んでください。'); syncButtons(); return; }
     if (m.type === 'fatal') { status(m.error, true); return; }
@@ -76,8 +77,8 @@ async function processImage() {
 async function prepareJPEG(revision = state.revision) {
   const source = state.corrected; if (!source) return;
   const blob = await new Promise(resolve => source.toBlob(resolve, 'image/jpeg', Number($('quality').value) / 100));
-  if (!blob || !blob.size) throw new Error('JPGを作成できませんでした。画像を小さくしてください。');
   if (revision !== state.revision) return;
+  if (!blob || !blob.size) throw new Error('JPGを作成できませんでした。画像を小さくしてください。');
   const base = (state.file?.name || '図面').replace(/\.[^.]+$/, '').replace(/[\\/:*?"<>|\u0000-\u001f]/g, '_');
   state.jpeg = new File([blob], `${base}_補正.jpg`, { type: 'image/jpeg' }); syncButtons();
 }
@@ -170,6 +171,29 @@ $('angle').oninput = () => { $('angleValue').value = `${$('angle').value}°`; };
 $('applyAngle').onclick = async () => { const angle = Number($('angle').value); if (angle) { await rotate(angle); $('angle').value = 0; $('angleValue').value = '0°'; } };
 $('resetGeometry').onclick = () => { if (state.original && !state.busy) geometryChanged(state.original); };
 $('reset').onclick = () => { if (!state.original || state.busy) return; clearTimeout(timer); setPreset('standard'); setColorMode('color'); const old = [state.geometry, state.corrected]; state.geometry = state.original; state.corrected = null; old.forEach(free); state.points = []; state.picking = false; state.mode = 'original'; $('angle').value = 0; $('angleValue').value = '0°'; $('quality').value = 95; $('qualityValue').value = '95%'; invalidate(); updateModes(); fit(); status('原本に戻しました。補正設定も初期値に戻しました。'); };
+function clearImage() {
+  if (state.busy || !state.original) return;
+  clearTimeout(timer); timer = undefined;
+  const images = new Set([state.original, state.geometry, state.corrected]);
+  state.original = state.geometry = state.corrected = null;
+  state.file = state.jpeg = null; state.points = []; state.picking = false;
+  state.mode = 'corrected'; state.split = .5;
+  for (const canvas of images) free(canvas);
+  if (outputURL) { URL.revokeObjectURL(outputURL); outputURL = null; }
+  for (const id of pointers.keys()) if (view.hasPointerCapture(id)) view.releasePointerCapture(id);
+  pointers.clear(); drag = pinch = null;
+  setPreset('standard'); setColorMode('color');
+  $('camera').value = $('file').value = '';
+  $('angle').value = 0; $('angleValue').value = '0°';
+  $('quality').value = 95; $('qualityValue').value = '95%'; $('split').value = 50;
+  $('viewer').style.removeProperty('--image-ratio');
+  $('empty').style.display = ''; $('dimensions').textContent = '画像未選択'; $('zoomValue').value = '100%';
+  $('fileInfo').textContent = '拡大して寸法数字や薄い線を確認できます。';
+  document.querySelectorAll('details').forEach(d => { d.open = false; });
+  invalidate(); updateModes(); fit();
+  status('画像をクリアしました。次の図面を選択してください。');
+}
+$('clear').onclick = clearImage;
 $('auto').onclick = processImage;
 $('presets').onclick = e => { const name = e.target.dataset.preset; if (name && !state.busy) { setPreset(name); invalidate(); schedule(); } };
 $('modes').onclick = e => { if (e.target.dataset.mode) { state.mode = e.target.dataset.mode; state.picking = false; state.points = []; updateModes(); syncButtons(); render(); } };
@@ -218,7 +242,7 @@ $('demoBtn').onclick = async () => {
   cx.fillStyle = '#28834b'; cx.fillText('緑字：確認済', 950, 1030);
   const blob = await new Promise(r => c.toBlob(r, 'image/png')); c.width = c.height = 1; await load(new File([blob], 'サンプル図面.png', { type: 'image/png' }));
 };
-async function offlineStatus() { try { const cache = await caches.open('kawazunext-drawing-scan-v18'); const response = await cache.match(new URL('assets/opencv.js', location.href)); $('offline').textContent = response ? 'オフライン準備完了 · アプリとOpenCVを端末に保存しました。画像はキャッシュしません。' : 'オフライン準備中です。通信環境でしばらくお待ちください。'; } catch { $('offline').textContent = 'オフライン保存が利用できません。通常の通信環境でご利用ください。'; } }
+async function offlineStatus() { try { const cache = await caches.open('kawazunext-drawing-scan-v19'); const response = await cache.match(new URL('assets/opencv.js', location.href)); $('offline').textContent = response ? 'オフライン準備完了 · アプリとOpenCVを端末に保存しました。画像はキャッシュしません。' : 'オフライン準備中です。通信環境でしばらくお待ちください。'; } catch { $('offline').textContent = 'オフライン保存が利用できません。通常の通信環境でご利用ください。'; } }
 if ('serviceWorker' in navigator && window.isSecureContext) {
   navigator.serviceWorker.register('service-worker.js').then(reg => { if (reg.active) offlineStatus(); reg.addEventListener('updatefound', () => { const installing = reg.installing; installing?.addEventListener('statechange', () => { if (installing.state === 'installed') { offlineStatus(); if (navigator.serviceWorker.controller) status('アプリの更新があります。作業を保存してから、アプリを閉じて開き直してください。'); } }); }); navigator.serviceWorker.ready.then(offlineStatus); }).catch(() => { $('offline').textContent = 'オフライン準備に失敗しました。HTTPSまたはlocalhostで開いてください。'; });
 } else $('offline').textContent = 'PWA・共有にはHTTPSまたはlocalhostが必要です。';

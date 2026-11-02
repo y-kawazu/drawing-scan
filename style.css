@@ -62,3 +62,5 @@ header>#install{background:var(--surface)}
   .brand-logo{width:clamp(155px,51vw,220px)}
   header>#install{flex:none}
 }
+
+.upload-secondary{display:flex;justify-content:space-between;align-items:center;gap:8px;grid-column:1/-1;flex-basis:100%;width:100%}.upload-secondary .text{flex:0 1 auto;min-height:36px;padding:2px 0;font-size:12px}.upload-secondary #demoBtn{text-align:left}
